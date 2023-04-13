@@ -4,7 +4,7 @@ SendMode Input  ; Recommended for new scripts due to its superior speed and reli
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 StringCaseSense, Locale
 
-Script_Version := 1.1
+Script_Version := 1.5
 
 Updated_Version := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Update")
 
@@ -20,21 +20,11 @@ RegexMatch(Updated_Version, "\w.\w", Updated_Version)
 If (Script_Version != Updated_Version)
 {
 Updated_text := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main")
-FileAppend, %Updated_text%, new_%A_ScriptName%
-}
-
-
-/*
-Yes:
-UrlDownloadToFile, www.yoururl.com, your path & File name
-gosub Run
-return
-
-
-Run:
-Run, %Name%
+FileDelete, %A_ScriptName%
+FileAppend, %Updated_text%, %A_ScriptName%
+Run, %A_ScriptName%
 ExitApp
-*/
+}
 	
 
 { ; ИНТЕРФЕЙС
