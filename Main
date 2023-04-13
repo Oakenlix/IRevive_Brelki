@@ -4,29 +4,38 @@ SendMode Input  ; Recommended for new scripts due to its superior speed and reli
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 StringCaseSense, Locale
 
-Script_Version := 1.0
+Script_Version := 1.1
 
-UpdateScript()
+Updated_Version := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Update")
 
-UpdateScript()
-{
-	whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-	whr.Open("GET", "https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Update", true)
-	whr.Send()
-	whr.WaitForResponse()
-	Updated_Version := whr.ResponseText
-
-	RegexMatch(Updated_Version, ".*", Updated_Version)
-
-	If (Script_Version == Updated_Version)
-		{
-			MsgBox, Последняя версия	
-		}
-	If (Script_Version != Updated_Version)
-		{
-			MsgBox, Надо обновить
-		}
+URLDownloadToVar(url) {
+ WebRequest := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+ WebRequest.Open("GET", url)
+ WebRequest.Send()
+ Return, WebRequest.ResponseText
 }
+
+RegexMatch(Updated_Version, "\w.\w", Updated_Version)
+
+If (Script_Version != Updated_Version)
+{
+Updated_text := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main")
+FileAppend, %Updated_text%, new_%A_ScriptName%
+}
+
+
+/*
+Yes:
+UrlDownloadToFile, www.yoururl.com, your path & File name
+gosub Run
+return
+
+
+Run:
+Run, %Name%
+ExitApp
+*/
+	
 
 { ; ИНТЕРФЕЙС
 
