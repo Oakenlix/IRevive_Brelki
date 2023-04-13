@@ -4,6 +4,23 @@ SendMode Input  ; Recommended for new scripts due to its superior speed and reli
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 StringCaseSense, Locale
 
+; Updated!
+
+;URL := https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main
+
+
+;AA:= URLDownloadToVar("https://raw.githubusercontent.com/SkrillexAkaCraft/FiestaOnline/master/Update.txt")
+AA:= URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main")
+msgbox % AA
+
+URLDownloadToVar(url) {
+ WebRequest := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+ WebRequest.Open("GET", url)
+ WebRequest.Send()
+ Return, WebRequest.ResponseText
+}
+
+
 { ; ИНТЕРФЕЙС
 
 ;############################################### GUI
