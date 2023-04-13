@@ -1,0 +1,359 @@
+#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
+; #Warn  ; Enable warnings to assist with detecting common errors.
+SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
+SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+StringCaseSense, Locale
+
+{ ; ИНТЕРФЕЙС
+
+;############################################### GUI
+
+;LV_ModifyCol() - масштабировать ширину столбцов
+
+LoadSettings()
+
+LoadSettings()
+{
+	Loop, read, Settings.txt
+	{
+		{
+			String%A_Index% := 
+			MsgBox, Field number %A_Index% is %A_LoopField%.
+			Set%A_Index% := 
+		}
+	}
+}
+
+TestString := "This is a test."
+word_array := StrSplit(TestString, A_Space, ".") ; Omits periods.
+MsgBox % "The 4th word is " word_array[4]
+
+
+
+Menu, HelpMenu, Add, &Кнопки, HelpKeys
+; Create the menu bar by attaching the sub-menus to it:
+Menu, MyMenuBar, Add, &Помощь, :HelpMenu
+; Attach the menu bar to the window:
+Gui, Menu, MyMenuBar
+
+Gui, Add, Tab3, vMyTab w700 h250, Заказы | Расстановка макетов | Фильтр
+Gui, Tab, 1
+Gui, Add, ListView, vMyTable gMyTable LV0x100 Grid Checked Count100, Номер|Название|Артикул|Макет|Этикетка
+Gui, Add, Button, x15 y160 vOK, OK  ; xm puts it at the bottom left corner.
+Gui, Add, Button, x+5 w75 r1 -Multi -Wrap vSkip gSkip, &Пропустить
+LV_ModifyCol(1, 90)
+LV_ModifyCol(2, 250)
+LV_ModifyCol(3, 80)
+LV_ModifyCol(4, 120)
+
+Gui, Tab, 2
+Gui, Add, Text,, В разработке
+Gui, Tab, 3
+Gui, Add, Text,, В разработке
+
+
+Gui, Show, w750 h300
+Gui +Resize
+WinSet, AlwaysOnTop, On, %A_ScriptName%
+return
+
+GuiSize:
+AdjustSize()
+AdjustSize()
+{
+if (ErrorLevel = 1)  ; The window has been minimized. No action needed.
+    return
+Listview_width:=A_GuiWidth-40
+Listview_height:=A_GuiHeight-80
+Tab_width := A_GuiWidth-20
+Tab_height := A_GuiHeight-10
+Button_y:=A_GuiHeight-70
+guicontrol, move, MyTable, w%Listview_width% h%Listview_height%
+guicontrol, move, MyTab, w%Tab_width% h%Tab_height%
+guicontrol, movedraw, OK, y%Button_y%
+guicontrol, movedraw, Skip, y%Button_y%
+}
+return
+
+GuiClose:  ; Indicate that the script should exit automatically when the window is closed.
+ExitApp
+
+MyTable:
+if (A_GuiEvent = "DoubleClick")
+{
+    LV_GetText(RowText, A_EventInfo)  ; Get the text from the row's first field.
+	Clipboard := RowText
+	WinActivate, ahk_exe chrome.exe
+	sleep 200
+	SendInput ^{vk46} ; CTRL+F
+	sleep 100
+	SendInput ^{vk56} ; CTRL+V
+	SendInput {enter}
+}
+return
+
+HelpKeys:
+HelpString =
+(
+
+Кнопки:
+Alt+0 - загрузить выделенный список заказов из таблицы
+Alt+9 - загрузить в таблицу номера этикеток из листа набора
+Alt+1 - открыть следующий макет в EZCAD
+Alt+2 - сохранить выделенный макет к этому заказу
+Alt+3 - расстановка макетов
+Alt+4 - расстановка макетов для кожи
+Alt+5 - трассирование изображения в Coral
+Двойной клик по строке в программе - найти этот номер в браузере.
+
+)
+Gui, About:+owner1  ; Make the main window (Gui #1) the owner of the "about box".
+Gui +Disabled  ; Disable main window.
+Gui, About:Add, Text,, %HelpString%
+Gui, About:Add, Button, Default, OK
+Gui, About:Show
+return
+
+AboutButtonOK:  ; This section is used by the "about box" above.
+AboutGuiClose:
+AboutGuiEscape:
+Gui, 1:-Disabled  ; Re-enable the main window (must be done prior to the next step).
+Gui Destroy  ; Destroy the about box.
+return
+
+Skip: ; КНОПКА "ПРОПУСТИТЬ"
+NextOrder()
+LV_Modify(Current_Line, "Check")
+return
+
+!0::
+PasteTable()
+Current_Line := 
+LV_Modify(1, "Select")
+return
+
+PasteTable() ; ##### Вставка из таблицы в скрипт
+{
+LV_Delete()
+SendInput ^{vk43} ; CTRL+C
+sleep 200
+StringSplit, Order_Line, Clipboard, `n, `r
+
+GuiControl, -Redraw, MyTable ; ДОБАВЛЕНИЕ ТАБЛИЦЫ В LISTVIEW
+loop %Order_Line0%
+	{
+	StringSplit, Order_Part, Order_Line%A_Index%, %A_Tab%
+	LV_Add("", Order_Part1, Order_Part2, Order_Part3)
+	}
+GuiControl, +Redraw, MyTable
+}
+
+!9::
+SendInput ^{vk43} ; CTRL+C
+sleep 200
+PasteEtiketki()
+return
+
+PasteEtiketki()  ; ###### Добавление номеров этикеток
+{
+Loop, parse, clipboard, `n, `r
+	{
+		StringSplit, Order_Part, A_LoopField, %A_Space%
+		If RegexMatch(Order_Part1, "\d{9}", result)
+			Order_Number := result
+		If RegexMatch(A_LoopField, "\d{7} \d{4}", result)
+			Etiketki := SubStr(A_LoopField, -11)
+			StringSplit, Etiketka, Etiketki, %A_Space%
+			loop % LV_GetCount()
+			{
+			If LV_GetText(Article, A_Index, 1)
+				If (Article == Order_Number)
+						LV_Modify(A_Index,, , , , , Etiketka2 A_Space A_Space Etiketka1)
+			}
+		
+	}
+}
+return
+
+NextOrder() ; ##### Переход к следующему неотмеченному заказу
+{
+global Current_Line := 
+RowNumber := 0  ; This causes the first loop iteration to start the search at the top of the list.
+Loop
+{
+	If (LV_GetNext(RowNumber, "C")-RowNumber>1)
+	{
+		Current_Line := RowNumber+1
+		break
+	}
+	
+	If LV_GetNext(RowNumber, "C")
+		RowNumber := LV_GetNext(RowNumber, "C")  ; Resume the search at the row after that found by the previous iteration.
+    else If !LV_GetNext(RowNumber, "C") ; The above returned zero, so there are no more selected rows.
+	{
+		Current_Line := A_Index
+        break
+	}
+}
+LV_Modify(0, "-Select")
+LV_Modify(Current_Line, "Select")
+}
+
+#IfWinActive EzCad 
+
+
+!1::
+NextOrder()
+MAKET_NAME2 := 
+SendInput ^{vk42} ; CTRL+B
+
+If LV_GetText(OrderArticle, Current_Line, 3)
+	Loop, read, WB база макетов.txt
+		If Instr(A_LoopReadLine, OrderArticle)
+		{
+			StringSplit, MAKET_NAME, A_LoopReadLine, %A_Tab%
+			LV_GetText(OrderArticle, Current_Line, 3)
+			If (OrderArticle == MAKET_NAME1)
+			{
+				sleep 600
+				SendInput %MAKET_NAME2%
+				sleep 100
+				Click, 230 580
+				Click, 230 580
+				SendInput {Lshift down}{tab 4}{Lshift up}
+				LV_Modify(Current_Line,, , , ,MAKET_NAME2)
+				LV_Modify(Current_Line, "Check")
+				break
+			}
+			else
+				loop 5
+					MAKET_NAME%A_Index% :=
+		}
+return
+
+#IfWinActive ahk_class #32770 ; ЕСЛИ ОТКРЫТО ОКНО ВЫБОРА МАКЕТОВ В EZCAD
+
+!2::
+If MAKET_NAME2
+{
+	SendInput {enter}
+	LV_Modify(Current_Line,, , , ,MAKET_NAME2)
+	LV_Modify(Current_Line, "Check")
+}
+If !MAKET_NAME2
+{
+SendInput ^{vk43}{enter} ; CTRL+C
+sleep 300
+MAKET_NAME2 := Clipboard
+LV_Modify(Current_Line,, , , ,MAKET_NAME2)
+LV_GetText(OrderName, Current_Line, 2)
+LV_GetText(OrderArticle, Current_Line, 3)
+FileAppend, `n%OrderArticle%%A_Tab%%MAKET_NAME2%%A_Tab%%A_Tab%%A_Tab%%OrderName%, WB база макетов.txt
+LV_Modify(Current_Line, "Check")
+}
+return
+}
+
+
+{ ; КОПИРОВАНИЕ В ТАБЛИЦУ
+#IfWinActive
+OnClipboardChange:
+If InStr(Clipboard, "Ваш SKU")
+	CopyYandex()
+If InStr(Clipboard, "Арт.:")
+	CopyWB()
+If RegexMatch(Clipboard, "\d+-\d{4}-\d", result)
+	CopyOzon()
+return
+
+CopyYandex()
+{
+	Loop, parse, clipboard, `n, `r
+	{
+
+	If RegexMatch(A_LoopField, "\d+ \/ (.*)", result)
+	{
+		Resultstring := Resultstring result1 A_Tab
+		Name := true
+	}
+
+	If RegexMatch(A_LoopField, "Ваш SKU: (.*), (.*) шт", result) ; Новый яндекс
+	{
+		If Name
+			Resultstring := Resultstring OldString A_Tab result1 A_Tab result2 "`n"
+		If !Name
+			Resultstring := Resultstring A_tab OldString A_Tab result1 A_Tab result2 "`n"
+
+		Name := false
+	}
+
+	If RegexMatch(A_LoopField, "Ещё \d товар", result)
+		{
+			MsgBox, Есть еще товар, нужно развернуть все заказы
+			break
+		}
+	If A_LoopField
+		OldString := A_LoopField
+	}
+
+	Clipboard := Resultstring
+}
+
+
+CopyWB()
+{
+	Loop, parse, clipboard, `n, `r
+	{
+		If RegexMatch(A_LoopField, "Арт.: (.*)", result)
+		{
+			Resultstring := Resultstring OldString A_Tab result1 "`n"
+		}
+
+		else If RegexMatch(A_LoopField, "\d{9}", result)
+			Resultstring := Resultstring A_LoopField A_Tab
+
+		If A_LoopField
+			OldString := A_LoopField
+	}
+
+	Clipboard := Resultstring
+}
+return
+
+CopyOzon()
+{
+	Loop, parse, clipboard, `n, `r
+	{
+
+	if StrAmount
+	{
+		if A_LoopField
+			Resultstring := Resultstring A_LoopField "`n"
+		StrAmount := false
+	}
+
+
+	If RegexMatch(A_LoopField, "\d+-\d+-\d+", result)
+		{
+		Resultstring := Resultstring result A_Tab
+		Name := true
+		}
+
+	If RegexMatch(A_LoopField, "(.*), (.*) шт.", result)
+		{
+			If Name
+				Resultstring := Resultstring result1 A_Tab result2 A_Tab
+			if !Name
+				Resultstring := Resultstring A_Tab result1 A_Tab result2 A_Tab
+			StrAmount := true
+			Name := false
+		}
+	}
+	Clipboard := Resultstring
+}
+
+}
+
+
+
+#Include Не удалять.ahk
