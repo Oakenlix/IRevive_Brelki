@@ -4,22 +4,29 @@ SendMode Input  ; Recommended for new scripts due to its superior speed and reli
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 StringCaseSense, Locale
 
-; Updated!
+Script_Version := 1.0
 
-;URL := https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main
+UpdateScript()
 
+UpdateScript()
+{
+	whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+	whr.Open("GET", "https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Update", true)
+	whr.Send()
+	whr.WaitForResponse()
+	Updated_Version := whr.ResponseText
 
-;AA:= URLDownloadToVar("https://raw.githubusercontent.com/SkrillexAkaCraft/FiestaOnline/master/Update.txt")
-AA:= URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main")
-msgbox % AA
+	RegexMatch(Updated_Version, ".*", Updated_Version)
 
-URLDownloadToVar(url) {
- WebRequest := ComObjCreate("WinHttp.WinHttpRequest.5.1")
- WebRequest.Open("GET", url)
- WebRequest.Send()
- Return, WebRequest.ResponseText
+	If (Script_Version == Updated_Version)
+		{
+			MsgBox, Последняя версия	
+		}
+	If (Script_Version != Updated_Version)
+		{
+			MsgBox, Надо обновить
+		}
 }
-
 
 { ; ИНТЕРФЕЙС
 
@@ -27,6 +34,7 @@ URLDownloadToVar(url) {
 
 ;LV_ModifyCol() - масштабировать ширину столбцов
 
+/*
 LoadSettings()
 
 LoadSettings()
@@ -45,7 +53,7 @@ TestString := "This is a test."
 word_array := StrSplit(TestString, A_Space, ".") ; Omits periods.
 MsgBox % "The 4th word is " word_array[4]
 
-
+*/
 
 Menu, HelpMenu, Add, &Кнопки, HelpKeys
 ; Create the menu bar by attaching the sub-menus to it:
