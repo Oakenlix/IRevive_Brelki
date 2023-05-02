@@ -4,7 +4,7 @@ SendMode Input  ; Recommended for new scripts due to its superior speed and reli
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 StringCaseSense, Locale
 
-Script_Version := 1.6
+Script_Version := 1.0
 
 Updated_Version := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Update")
 
@@ -20,38 +20,32 @@ RegexMatch(Updated_Version, "\w.\w", Updated_Version)
 If (Script_Version != Updated_Version)
 {
 Updated_text := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main")
-;FileDelete, %A_ScriptName%
-FileMove, %A_ScriptName%, %A_ScriptName%%Script_Version%
+FileCreateDir, %A_ScriptDir%\Backups
+FileMove, %A_ScriptName%, %A_ScriptDir%\Backups\%A_DD%%A_MM%_%A_ScriptName%
 FileAppend, %Updated_text%, %A_ScriptName%
 Run, %A_ScriptName%
 ExitApp
 }
+
+; ####################################### Загрузка настроек
+LoadSettings()
+
+LoadSettings()
+{
+	global Setting := []
+	Loop, read, Settings.txt
+	{
+		StringSplit, Result, A_LoopReadLine, %A_Tab%
+		Setting[A_Index] := Result1
+	}
+}
+
 
 
 { ; ИНТЕРФЕЙС
 
 ;############################################### GUI
 
-/*
-LoadSettings()
-
-LoadSettings()
-{
-	Loop, read, Settings.txt
-	{
-		{
-			String%A_Index% := 
-			MsgBox, Field number %A_Index% is %A_LoopField%.
-			Set%A_Index% := 
-		}
-	}
-}
-
-TestString := "This is a test."
-word_array := StrSplit(TestString, A_Space, ".") ; Omits periods.
-MsgBox % "The 4th word is " word_array[4]
-
-*/
 
 Menu, HelpMenu, Add, &Кнопки, HelpKeys
 ; Create the menu bar by attaching the sub-menus to it:
@@ -59,7 +53,7 @@ Menu, MyMenuBar, Add, &Помощь, :HelpMenu
 ; Attach the menu bar to the window:
 Gui, Menu, MyMenuBar
 
-Gui, Add, Tab3, vMyTab w700 h250, Заказы | Расстановка макетов | Фильтр
+Gui, Add, Tab3, vMyTab w700 h250, Заказы | Расстановка макетов | Фильтр | Настройки
 Gui, Tab, 1
 Gui, Add, ListView, vMyTable gMyTable LV0x100 Grid Checked Count100, Номер|Название|Артикул|Макет|Этикетка
 Gui, Add, Button, x15 y160 vOK, OK  ; xm puts it at the bottom left corner.
@@ -73,6 +67,10 @@ Gui, Tab, 2
 Gui, Add, Text,, В разработке
 Gui, Tab, 3
 Gui, Add, Text,, В разработке
+Gui, Tab, 4
+Gui, Add, Text,, Тест
+Gui, Add, Text,, % Setting[5]
+Gui, Add, Text,, % Setting[6]
 
 
 Gui, Show, w750 h300
@@ -280,13 +278,14 @@ return
 
 { ; КОПИРОВАНИЕ В ТАБЛИЦУ
 #IfWinActive
+
 OnClipboardChange:
 If InStr(Clipboard, "Ваш SKU")
 	CopyYandex()
-If InStr(Clipboard, "Арт.:")
-	CopyWB()
-If RegexMatch(Clipboard, "\d+-\d{4}-\d", result)
+If RegexMatch(Clipboard, "\d+-\d{4}-\d", result) and InStr(Clipboard, "шт.")
 	CopyOzon()
+If InStr(Clipboard, "2023") and InStr(Clipboard, "Арт.:")
+	CopyWB()
 return
 
 CopyYandex()
@@ -322,27 +321,6 @@ CopyYandex()
 	Clipboard := Resultstring
 }
 
-
-CopyWB()
-{
-	Loop, parse, clipboard, `n, `r
-	{
-		If RegexMatch(A_LoopField, "Арт.: (.*)", result)
-		{
-			Resultstring := Resultstring OldString A_Tab result1 "`n"
-		}
-
-		else If RegexMatch(A_LoopField, "\d{9}", result)
-			Resultstring := Resultstring A_LoopField A_Tab
-
-		If A_LoopField
-			OldString := A_LoopField
-	}
-
-	Clipboard := Resultstring
-}
-return
-
 CopyOzon()
 {
 	Loop, parse, clipboard, `n, `r
@@ -375,8 +353,42 @@ CopyOzon()
 	Clipboard := Resultstring
 }
 
+CopyWB()
+{
+	Loop, parse, clipboard, `n, `r
+	{
+		If RegexMatch(A_LoopField, "Арт.: (.*)", result)
+		{
+			   If RegexMatch(OldString, "i)нка для (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)-плёнка (.*)", OldStringcut)
+			or If RegexMatch(OldString, "i)нка гидрогелевая (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)смарт-(.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)смарт (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)для экрана (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)ая для (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)нка защитная (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)ая пленка (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)ая плёнка (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)/ Плёнка (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)/ Пленка (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)енка на (.*)", OldStringcut) 
+			or If RegexMatch(OldString, "i)Мир пленки \/ (.*)", OldStringcut)
+			or If RegexMatch(OldString, "i)Комплект пленок для (.*)", OldStringcut)
+				Resultstring := Resultstring OldStringcut1 A_Tab result1 "`n"
+			else
+				Resultstring := Resultstring "/"OldString A_Tab result1 "`n"
+		}
+
+		else If RegexMatch(A_LoopField, "\d{9}", result)
+			Resultstring := Resultstring A_LoopField A_Tab
+
+		If A_LoopField
+			OldString := A_LoopField
+	}
+
+	Clipboard := Resultstring
 }
 
-
+}
 
 #Include Не удалять.ahk
