@@ -4,7 +4,7 @@ SendMode Input  ; Recommended for new scripts due to its superior speed and reli
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 StringCaseSense, Locale
 
-Script_Version := 1.2
+Script_Version := 1.3
 
 Updated_Version := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Update")
 
@@ -129,11 +129,18 @@ if (A_GuiEvent = "DoubleClick")
 	SendInput ^{vk56} ; CTRL+V
 	SendInput {enter}
 }
-if (A_GuiEvent = "R") ; Клик правой ;
+if (A_GuiEvent = "RightClick") ; Клик правой ;
 {
 	LV_GetText(RowText, A_EventInfo, 3)  
-	DeleteMaket(RowText)
-	LV_modify(A_EventInfo, "Col4", A_Space)
+	MSGBox, 4, , Удалить макет для %RowText%?
+	IfMsgBox, No 
+		return
+	IfMsgBox, Yes 
+	{
+		LV_GetText(RowText, A_EventInfo, 3)  
+		DeleteMaket(RowText)
+		LV_modify(A_EventInfo, "Col4", A_Space)
+	}
 }
 return
 
@@ -361,6 +368,7 @@ Filter()
 		If InStr(A_LoopField, "Брел")
 		or InStr(A_LoopField, "Подвес")
 		or InStr(A_LoopField, "Кулон") 
+		or InStr(A_LoopField, "Жетон") 
 		or InStr(A_LoopField, "Зажигалк") 
 		or InStr(A_LoopField, "Брасл") and !InStr(A_LoopField, "Band")
 			Resultstring := Resultstring A_LoopField "`n"
