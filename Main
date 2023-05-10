@@ -21,13 +21,14 @@ If (Script_Version != Updated_Version)
 {
 Updated_text := URLDownloadToVar("https://raw.githubusercontent.com/Oakenlix/IRevive_1/main/Main")
 FileCreateDir, %A_ScriptDir%\Backups
-FileMove, %A_ScriptName%, %A_ScriptDir%\Backups\%A_Min%%A_Hour%-%A_DD%%A_MM%.txt
+FileMove, %A_ScriptName%, %A_ScriptDir%\Backups\%A_Hour%%A_Min%-%A_DD%%A_MM%.ahk
 FileAppend, %Updated_text%, %A_ScriptName%
 Run, %A_ScriptName%
 ExitApp
 }
 ; ####################################### Загрузка настроек
 LoadSettings()
+
 
 LoadSettings()
 {
@@ -37,9 +38,10 @@ LoadSettings()
 		StringSplit, Result, A_LoopReadLine, %A_Tab%
 		Setting[A_Index] := Result1
 	}
+	global USERNAME := Setting[1] ; Name
+	global SETONTOP := Setting[2] ; AlwaysOnTop
+	global ENABLE_FILTER := Setting[3] ; Filter
 }
-
-
 
 { ; ИНТЕРФЕЙС
 
@@ -52,9 +54,9 @@ Menu, MyMenuBar, Add, &Помощь, :HelpMenu
 ; Attach the menu bar to the window:
 Gui, Menu, MyMenuBar
 
-Gui, Add, Tab3, vMyTab w700 h250, Заказы | Расстановка макетов | Фильтр | Настройки
+Gui, Add, Tab3, vMyTab w700 h250, Заказы | Расстановка макетов | Настройки
 Gui, Tab, 1
-Gui, Add, ListView, vMyTable gMyTable LV0x100 Grid Checked Count100, Номер|Название|Артикул|Макет|Этикетка
+Gui, Add, ListView, vMyTable gMyTable LV0x100 Grid Checked AltSubmit Count100, Номер|Название|Артикул|Макет|Этикетка
 Gui, Add, Button, x15 y160 vOK, OK  ; xm puts it at the bottom left corner.
 Gui, Add, Button, x+5 w75 r1 -Multi -Wrap vSkip gSkip, &Пропустить
 LV_ModifyCol(1, 90)
@@ -63,20 +65,21 @@ LV_ModifyCol(3, 80)
 LV_ModifyCol(4, 120)
 
 Gui, Tab, 2
-Gui, Add, Text,, В разработке
+Gui, Add, Text,, Пока еще не готово
 Gui, Tab, 3
-Gui, Add, Text,, В разработке
-Gui, Tab, 4
-Gui, Add, Text,, Тест
-Gui, Add, Text,, % Setting[5]
-Gui, Add, Text,, % Setting[6]
-
-
+Gui, Add, Text,, Имя:
+Gui, Add, Edit, w100 x+5 vUSERNAME, % Setting[1]
+Gui, Add, CheckBox, vSETONTOP Checked%SETONTOP%, Отображать поверх других окон
+Gui, Add, CheckBox, vENABLE_FILTER Checked%ENABLE_FILTER%, Фильтровать заказы
+Gui, Add, Button, default xm+30 ym+240, Сохранить  ; СОХРАНИТЬ НАСТРОЙКИ
 Gui, Show, w750 h300
 Gui +Resize
-If Setting[4]
+
+If Setting[2]
 	WinSet, AlwaysOnTop, On, %A_ScriptName%
 return
+
+
 
 GuiSize:
 AdjustSize()
@@ -96,6 +99,21 @@ guicontrol, movedraw, Skip, y%Button_y%
 }
 return
 
+ButtonСохранить:
+Gui, Submit, NoHide 
+FileDelete, Settings.txt
+Setting[1] := USERNAME
+SEtting[2] := SETONTOP
+SEtting[3] := ENABLE_FILTER
+loop % Setting.MaxIndex()
+	FileAppend % Setting[A_Index]"`n", Settings.txt
+
+If Setting[2]
+	WinSet, AlwaysOnTop, On, %A_ScriptName%
+If !Setting[2]
+	WinSet, AlwaysOnTop, Off, %A_ScriptName%
+return
+
 GuiClose:  ; Indicate that the script should exit automatically when the window is closed.
 ExitApp
 
@@ -111,7 +129,34 @@ if (A_GuiEvent = "DoubleClick")
 	SendInput ^{vk56} ; CTRL+V
 	SendInput {enter}
 }
+if (A_GuiEvent = "R") ; Клик правой ;
+{
+	LV_GetText(RowText, A_EventInfo, 3)  
+	DeleteMaket(RowText)
+	LV_modify(A_EventInfo, "Col4", A_Space)
+}
 return
+
+DeleteMaket(Article)
+{	
+	global
+	Resultstring := 
+	FileRead, FileText, База WB.txt
+	Loop, parse, FileText, `n, `r  ; Specifying `n prior to `r allows both Windows and Unix files to be parsed.
+	{
+		IfInString, A_LoopField, %Article%
+		{
+			StringSplit, DatabaseArray, A_LoopField, %A_Tab%
+			If (DatabaseArray2 == Article)
+				continue
+		}
+		Resultstring := Resultstring A_LoopField "`n"
+	}
+	
+	FileDelete, База WB.txt
+	FileAppend, %Resultstring%, База WB.txt
+	Resultstring := 
+}
 
 HelpKeys:
 HelpString =
@@ -147,9 +192,13 @@ NextOrder()
 LV_Modify(Current_Line, "Check")
 return
 
+
+
+
+
 !0::
 PasteTable()
-Current_Line := 
+Current_Line :=
 LV_Modify(1, "Select")
 return
 
@@ -167,6 +216,18 @@ loop %Order_Line0%
 	LV_Add("", Order_Part1, Order_Part2, Order_Part3)
 	}
 GuiControl, +Redraw, MyTable
+
+/*
+StringSplit, Order_Number, Order_Line1, %A_Tab%
+If (Order_Number0 == 3)
+	MARKETPLACE := "WB"
+If (Order_Number0 == 4)
+	If RegexMatch(Order_Number1, "[0-9]{9}", result)
+		MARKETPLACE := "YANDEX"
+If (Order_Number0 == 4)
+	If RegexMatch(Order_Number1, "\d+-\d+-\d+", result)
+		MARKETPLACE := "OZON"
+*/
 }
 
 !9::
@@ -191,14 +252,14 @@ Loop, parse, clipboard, `n, `r
 				If (Article == Order_Number)
 						LV_Modify(A_Index,, , , , , Etiketka2 A_Space A_Space Etiketka1)
 			}
-		
+
 	}
 }
 return
 
 NextOrder() ; ##### Переход к следующему неотмеченному заказу
 {
-global Current_Line := 
+global Current_Line :=
 RowNumber := 0  ; This causes the first loop iteration to start the search at the top of the list.
 Loop
 {
@@ -207,7 +268,7 @@ Loop
 		Current_Line := RowNumber+1
 		break
 	}
-	
+
 	If LV_GetNext(RowNumber, "C")
 		RowNumber := LV_GetNext(RowNumber, "C")  ; Resume the search at the row after that found by the previous iteration.
     else If !LV_GetNext(RowNumber, "C") ; The above returned zero, so there are no more selected rows.
@@ -220,29 +281,30 @@ LV_Modify(0, "-Select")
 LV_Modify(Current_Line, "Select")
 }
 
-#IfWinActive EzCad 
+
+#IfWinActive EzCad
 
 
 !1::
 NextOrder()
-MAKET_NAME2 := 
+MAKET_NAME3 :=
 SendInput ^{vk42} ; CTRL+B
 
 If LV_GetText(OrderArticle, Current_Line, 3)
-	Loop, read, WB база макетов.txt
+	Loop, read, База WB.txt
 		If Instr(A_LoopReadLine, OrderArticle)
 		{
 			StringSplit, MAKET_NAME, A_LoopReadLine, %A_Tab%
 			LV_GetText(OrderArticle, Current_Line, 3)
-			If (OrderArticle == MAKET_NAME1)
+			If (OrderArticle == MAKET_NAME2)
 			{
 				sleep 600
-				SendInput %MAKET_NAME2%
+				SendInput %MAKET_NAME3%
 				sleep 100
-				Click, 230 580
-				Click, 230 580
+				Click, 230 530
+				Click, 230 530
 				SendInput {Lshift down}{tab 4}{Lshift up}
-				LV_Modify(Current_Line,, , , ,MAKET_NAME2)
+				LV_modify(Current_Line, "Col4", MAKET_NAME3)
 				LV_Modify(Current_Line, "Check")
 				break
 			}
@@ -255,21 +317,22 @@ return
 #IfWinActive ahk_class #32770 ; ЕСЛИ ОТКРЫТО ОКНО ВЫБОРА МАКЕТОВ В EZCAD
 
 !2::
-If MAKET_NAME2
+If MAKET_NAME3
 {
 	SendInput {enter}
-	LV_Modify(Current_Line,, , , ,MAKET_NAME2)
+	LV_modify(Current_Line, "Col4", MAKET_NAME3)
 	LV_Modify(Current_Line, "Check")
 }
-If !MAKET_NAME2
+If !MAKET_NAME3
 {
 SendInput ^{vk43}{enter} ; CTRL+C
 sleep 300
-MAKET_NAME2 := Clipboard
-LV_Modify(Current_Line,, , , ,MAKET_NAME2)
+MAKET_NAME3 := Clipboard
+LV_modify(Current_Line, "Col4", MAKET_NAME3)
 LV_GetText(OrderName, Current_Line, 2)
 LV_GetText(OrderArticle, Current_Line, 3)
-FileAppend, `n%OrderArticle%%A_Tab%%MAKET_NAME2%%A_Tab%%A_Tab%%A_Tab%%OrderName%, WB база макетов.txt
+;FileAppend, `n%OrderArticle%%A_Tab%%MAKET_NAME2%%A_Tab%%A_Tab%%A_Tab%%OrderName%, База WB.txt
+FileAppend, % "`n" A_Hour ":" A_Min ":" A_Sec A_DD "." A_MM "." A_YYYY A_Tab OrderArticle A_Tab MAKET_NAME3 A_Tab A_Tab A_Tab OrderName, База WB.txt
 LV_Modify(Current_Line, "Check")
 }
 return
@@ -286,7 +349,23 @@ If RegexMatch(Clipboard, "\d+-\d{4}-\d", result) and InStr(Clipboard, "шт.")
 	CopyOzon()
 If InStr(Clipboard, "2023") and InStr(Clipboard, "Арт.:")
 	CopyWB()
+
+If ENABLE_FILTER
+	Filter()
 return
+
+
+Filter()
+{
+	Loop, parse, Clipboard, `n, `r
+		If InStr(A_LoopField, "Брел")
+		or InStr(A_LoopField, "Подвес")
+		or InStr(A_LoopField, "Кулон") 
+		or InStr(A_LoopField, "Зажигалк") 
+		or InStr(A_LoopField, "Брасл") and !InStr(A_LoopField, "Band")
+			Resultstring := Resultstring A_LoopField "`n"
+		Clipboard := Resultstring
+}
 
 CopyYandex()
 {
@@ -359,24 +438,7 @@ CopyWB()
 	{
 		If RegexMatch(A_LoopField, "Арт.: (.*)", result)
 		{
-			   If RegexMatch(OldString, "i)нка для (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)-плёнка (.*)", OldStringcut)
-			or If RegexMatch(OldString, "i)нка гидрогелевая (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)смарт-(.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)смарт (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)для экрана (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)ая для (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)нка защитная (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)ая пленка (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)ая плёнка (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)/ Плёнка (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)/ Пленка (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)енка на (.*)", OldStringcut) 
-			or If RegexMatch(OldString, "i)Мир пленки \/ (.*)", OldStringcut)
-			or If RegexMatch(OldString, "i)Комплект пленок для (.*)", OldStringcut)
-				Resultstring := Resultstring OldStringcut1 A_Tab result1 "`n"
-			else
-				Resultstring := Resultstring "/"OldString A_Tab result1 "`n"
+			Resultstring := Resultstring OldString A_Tab result1 "`n"
 		}
 
 		else If RegexMatch(A_LoopField, "\d{9}", result)
@@ -391,4 +453,320 @@ CopyWB()
 
 }
 
-#Include Не удалять.ahk
+
+
+
+:?:/я::
+SendInput %A_DD%.%A_Mon% %USERNAME%
+return
+
+
+#IfWinActive CorelDRAW
+
+!1::
+Click, 660 100
+Sendinput {up 2}{right}{up}{enter}
+sleep 1000
+Click, 780 80
+sleep 1000
+Click, 850 120
+sleep 1000
+Click, 850 200
+sleep 1000
+Click, 700 80
+sleep 500
+Click, 934 222
+sleep 500
+Click, 685 270
+sleep 1300
+Sendinput {tab}
+sleep 1000
+Sendinput {tab}
+sleep 200
+Sendinput {down 2}{enter}
+sleep 200
+Click, 860 600
+return
+
+
+#IfWinActive EzCad
+
+!2::
+InputBox, Brelok_Amount, Макеты, Сколько макетов?, , 250, 130
+sleep 200
+Sleep1 := 400+(Brelok_Amount*20)
+Sleep2 := 1000+(Brelok_Amount*30)
+Winactivate
+loop %Brelok_Amount%
+{
+Click 70 130
+sleep 400					;задержка1
+FileReadLine, The_Line, Координаты.txt, A_Index
+StringSplit, Coords, The_Line, %A_Space%
+Print(Coords1, Coords2)
+sleep 800					;задержка2
+}
+return
+
+
+
+
+Numpad1::
+FileReadLine, The_Line, Координаты.txt, 1
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad2::
+FileReadLine, The_Line, Координаты.txt, 2
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad3::
+FileReadLine, The_Line, Координаты.txt, 3
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad4::
+FileReadLine, The_Line, Координаты.txt, 4
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad5::
+FileReadLine, The_Line, Координаты.txt, 5
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad6::
+FileReadLine, The_Line, Координаты.txt, 6
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad7::
+FileReadLine, The_Line, Координаты.txt, 7
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad8::
+FileReadLine, The_Line, Координаты.txt, 8
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad9::
+FileReadLine, The_Line, Координаты.txt, 9
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+Numpad0::
+FileReadLine, The_Line, Координаты.txt, 10
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad1::
+FileReadLine, The_Line, Координаты.txt, 11
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad2::
+FileReadLine, The_Line, Координаты.txt, 12
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad3::
+FileReadLine, The_Line, Координаты.txt, 13
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad4::
+FileReadLine, The_Line, Координаты.txt, 14
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad5::
+FileReadLine, The_Line, Координаты.txt, 15
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad6::
+FileReadLine, The_Line, Координаты.txt, 16
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad7::
+FileReadLine, The_Line, Координаты.txt, 17
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+^Numpad8::
+FileReadLine, The_Line, Координаты.txt, 18
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print(Coords1, Coords2)
+return
+
+; КОЖАНЫЕ
+
+!Numpad1::
+FileReadLine, The_Line, Координаты кожа.txt, 1
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad2::
+FileReadLine, The_Line, Координаты кожа.txt, 2
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad3::
+FileReadLine, The_Line, Координаты кожа.txt, 3
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad4::
+FileReadLine, The_Line, Координаты кожа.txt, 4
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad5::
+FileReadLine, The_Line, Координаты кожа.txt, 5
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad6::
+FileReadLine, The_Line, Координаты кожа.txt, 6
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad7::
+FileReadLine, The_Line, Координаты кожа.txt, 7
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad8::
+FileReadLine, The_Line, Координаты кожа.txt, 8
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad9::
+FileReadLine, The_Line, Координаты кожа.txt, 9
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+!Numpad0::
+FileReadLine, The_Line, Координаты кожа.txt, 10
+StringSplit, Coords, The_Line, %A_Space%
+sleep 50
+Print2(Coords1, Coords2)
+return
+
+
+Print(Coord_X, Coord_Y) ; ЖЕТОНЫ
+{
+Click, 80 510
+sleep 200
+Sendinput {bs 10}
+sleep 50
+SendInput %Coord_X%{Tab}
+sleep 50
+SendInput %Coord_Y%{Tab}
+sleep 50
+SendInput 21{Tab}
+sleep 50
+SendInput 32{enter}
+sleep 50
+Click, 430 70
+sleep 100
+Sendinput {enter}
+sleep 200
+Click, 1770 280
+;sleep 200
+;Click, 615 100
+}
+
+Print2(Coord_X, Coord_Y) ; КОЖА
+{
+Click, 80 510
+sleep 200
+Sendinput {bs 10}
+sleep 50
+SendInput %Coord_X%{Tab}
+sleep 50
+SendInput %Coord_Y%{Tab}
+sleep 50
+SendInput 30{Tab}
+sleep 50
+SendInput 10{enter}
+sleep 50
+Click, 430 70
+sleep 100
+Sendinput {enter}
+sleep 200
+Click, 1775 280
+sleep 200
+Click, 615 100
+}
+
+Printall(Coord_X, Coord_Y) ; ВСЕ РАЗОМ
+{
+Click, 80 510
+sleep 200
+Sendinput {bs 10}
+sleep 50
+SendInput %Coord_X%{Tab}
+sleep 50
+SendInput %Coord_Y%{Tab}
+sleep 50
+SendInput 20{Tab}
+sleep 50
+SendInput 33{enter}
+}
